@@ -31,7 +31,7 @@ var Blockchain []Block
 
 
 func calculateHash(block Block) string {
-	record := string(block.Index) + block.timestamp + block.entry + block.PrevHash
+	record := string(block.Index) + block.Timestamp + block.Entry + block.PrevHash
 	hash := sha256.New()
 	hash.Write([]byte(record))
 	hashed := hash.Sum(nil)
@@ -40,7 +40,7 @@ func calculateHash(block Block) string {
 
 
 func generateBlock(oldBlock Block, Entry string) (Block, error) {
-	var newBlock = Block
+	var newBlock Block
 
 	t := time.Now()
 
@@ -80,8 +80,8 @@ func replaceChain(newBlocks []Block) {
 
 func run() error {
 	mux := makeMuxRouter()
-	httpAddr := os.Getenv("ADDR")
-	log.Println("Listening on ", os.Getenv("ADDR"))
+	httpAddr := os.Getenv("PORT")
+	log.Println("Listening on ", os.Getenv("PORT"))
 	s := &http.Server{
 		Addr: ":" + httpAddr,
 		Handler: mux,
@@ -100,13 +100,14 @@ func run() error {
 
 func makeMuxRouter() http.Handler {
 	muxRouter := mux.NewRouter()
-	muxRouter.HandleFunc("/", handleGetBlockchain).methods("GET")
-	muxRouter.HandleFunc("/", handleWriteBlock).methods("POST")
+	muxRouter.HandleFunc("/", handleGetBlockchain).Methods("GET")
+	muxRouter.HandleFunc("/", handleWriteBlock).Methods("POST")
+	return muxRouter
 }
 
 
 func handleGetBlockchain(w http.ResponseWriter, r *http.Request) {
-	bytes, err := json.MarshallIndent(Blockchain, "", " ")
+	bytes, err := json.MarshalIndent(Blockchain, "", "  ")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -138,4 +139,32 @@ func handleWriteBlock(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondWithJSON(w, r, http.StatusCreated, newBlock)
+}
+
+
+func respondWithJSON(w http.ResponseWriter, r *http.Request, code int, payload interface{}) {
+	response, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("HTTP 500: Internal Server Error - Jude Molloy"))
+		return
+	}
+	w.WriteHeader(code)
+	w.Write(response)
+}
+
+
+func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	go func() {
+		t := time.Now()
+		genesisBlock := Block{0, t.String(), "Hello World... - Jude Molloy" , "", ""}
+		spew.Dump(genesisBlock)
+		Blockchain = append(Blockchain, genesisBlock)
+	}()
+	log.Fatal(run())
 }
