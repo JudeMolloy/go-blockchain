@@ -23,6 +23,10 @@ type Block struct {
 	PrevHash  string
 }
 
+type Message struct {
+	Entry string
+}
+
 var Blockchain []Block
 
 
@@ -108,4 +112,30 @@ func handleGetBlockchain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	io.WriteString(w, string(bytes))
+}
+
+
+func handleWriteBlock(w http.ResponseWriter, r *http.Request) {
+	var m Message
+
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&m); err != nil {
+		respondWithJSON(w, r, http.StatusBadRequest, r.Body)
+		return
+	}
+	defer r.Body.Close()
+
+	newBlock, err := generateBlock(Blockchain[len(Blockchain) - 1], m.Entry)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+
+	}
+	if isBlockValid(newBlock, Blockchain[len(Blockchain) - 1]) {
+		newBlockchain := append(Blockchain, newBlock)
+		replaceChain(newBlockchain)
+		spew.Dump(Blockchain)
+	}
+
+	respondWithJSON(w, r, http.StatusCreated, newBlock)
 }
