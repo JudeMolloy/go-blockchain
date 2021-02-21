@@ -33,3 +33,79 @@ func calculateHash(block Block) string {
 	hashed := hash.Sum(nil)
 	return hex.EncodeToString(hashed)
 }
+
+
+func generateBlock(oldBlock Block, Entry string) (Block, error) {
+	var newBlock = Block
+
+	t := time.Now()
+
+	newBlock.Index = oldBlock.Index + 1
+	newBlock.Timestamp = t.String()
+	newBlock.Entry = Entry
+	newBlock.PrevHash = oldBlock.Hash
+	newBlock.Hash = calculateHash(newBlock)
+
+	return newBlock, nil
+}
+
+
+func isBlockValid(oldBlock, newBlock Block) bool {
+	if oldBlock.Index + 1 != newBlock.Index {
+		return false
+	}
+
+	if oldBlock.Hash != newBlock.PrevHash {
+		return false
+	}
+
+	if newBlock.Hash != calculateHash(newBlock) {
+		return false
+	}
+
+	return true
+}
+
+
+func replaceChain(newBlocks []Block) {
+	if len(newBlocks) > len(Blockchain) {
+		Blockchain = newBlocks
+	}
+}
+
+
+func run() error {
+	mux := makeMuxRouter()
+	httpAddr := os.Getenv("ADDR")
+	log.Println("Listening on ", os.Getenv("ADDR"))
+	s := &http.Server{
+		Addr: ":" + httpAddr,
+		Handler: mux,
+		ReadTimeout: 10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+
+	if err := s.ListenAndServe(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+
+func makeMuxRouter() http.Handler {
+	muxRouter := mux.NewRouter()
+	muxRouter.HandleFunc("/", handleGetBlockchain).methods("GET")
+	muxRouter.HandleFunc("/", handleWriteBlock).methods("POST")
+}
+
+
+func handleGetBlockchain(w http.ResponseWriter, r *http.Request) {
+	bytes, err := json.MarshallIndent(Blockchain, "", " ")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	io.WriteString(w, string(bytes))
+}
