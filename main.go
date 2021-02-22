@@ -126,13 +126,13 @@ func handleWriteBlock(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	newBlock, err := generateBlock(Blockchain[len(Blockchain) - 1], m.Entry)
+	newBlock, err := generateBlock(Blockchain[len(Blockchain) - 1], string(m.Entry))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 
 	}
-	if isBlockValid(newBlock, Blockchain[len(Blockchain) - 1]) {
+	if isBlockValid(Blockchain[len(Blockchain) - 1], newBlock) {
 		newBlockchain := append(Blockchain, newBlock)
 		replaceChain(newBlockchain)
 		spew.Dump(Blockchain)
